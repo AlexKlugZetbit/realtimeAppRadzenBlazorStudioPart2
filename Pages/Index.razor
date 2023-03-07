@@ -1,0 +1,41 @@
+@page "/"
+<PageTitle>Index</PageTitle>
+<div class="row pt-5 px-5">
+    <div class="col-12">
+        <RadzenDataGrid TItem="Models.CompanyDB.Employee" Data="@Employees" AllowFiltering="true">
+            <Columns>
+                <RadzenDataGridColumn TItem="Models.CompanyDB.Employee" Property="Name" Title="Name"></RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Models.CompanyDB.Employee" Property="Title" Title="Title"></RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+        
+    </div>
+</div>
+
+@using Microsoft.AspNetCore.SignalR.Client;
+@using RealtimeData.Services;
+@inject NavigationManager Navigation
+@code {
+    [Inject]
+    CompanyDBService dbService { get; set; }
+    [Inject]
+    RealtimeEmployeeDataService realtimeEmployeeDataService { get; set; }
+    public IQueryable<RealtimeData.Models.CompanyDB.Employee> Employees { get; set; }
+    private HubConnection hubConnection;
+    protected override async Task OnInitializedAsync()
+    {
+        Employees = await dbService.GetEmployees();
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/employeehub"))
+            .Build();
+
+        hubConnection.On<List<RealtimeData.Models.CompanyDB.Employee>>("RefreshEmployees", employees =>
+            {
+                Employees = employees.AsQueryable();
+                InvokeAsync(StateHasChanged);
+            });
+
+        await hubConnection.StartAsync();
+    }
+}
